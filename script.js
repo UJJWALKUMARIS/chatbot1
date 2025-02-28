@@ -1,50 +1,143 @@
-const chatBox = document.getElementById('chat-box');
-const userInput = document.getElementById('user-input');
-const sendBtn = document.getElementById('send-btn');
+let prompt = document.querySelector ('#prompt')
+let submitbut = document.querySelector ('#submit')
+let chatContainer = document.querySelector('.chat-container')
+let imagebut = document.querySelector('#image')
+let image = document.querySelector('#image img')
+let imageinput = document.querySelector("#image input")
 
-const API_KEY = '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';
-const API_URL = 'https://openrouter.ai/api/v1/chat/completions';
+const Api_Url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=AIzaSyA6UD8HwhHg37n3Yzsrt13axts3Zm4_fcU"
 
-sendBtn.addEventListener('click', sendMessage);
-userInput.addEventListener('keypress', function (e) {
-    if (e.key === 'Enter') {
-        sendMessage();
+
+
+
+
+let user = {
+    userdata: null,
+    file:{
+        mime_type: null,
+        data: null
     }
-});
-
-function sendMessage() {
-    const userMessage = userInput.value.trim();
-    if (userMessage === '') return;
-
-    appendMessage('user', userMessage);
-    userInput.value = '';
-
-    fetch(API_URL, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${API_KEY}`
-        },
-        body: JSON.stringify({
-            model: "deepseek/deepseek-r1:free", 
-            messages: [{ role: "user", content: userMessage }]
-        })
-    })
-    .then(response => response.json())
-    .then(data => {
-        const botMessage = data.choices[0].message.content;
-        appendMessage('bot', botMessage);
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        appendMessage('bot', 'Sorry, I am unable to process your request at the moment.');
-    });
 }
 
-function appendMessage(sender, message) {
-    const messageElement = document.createElement('div');
-    messageElement.classList.add('message', sender);
-    messageElement.innerHTML = `<p>${message}</p>`;
-    chatBox.appendChild(messageElement);
-    chatBox.scrollTop = chatBox.scrollHeight;
+async function generatResponse(aiChatBox) {
+
+let text = aiChatBox.querySelector(".ai-chat-area") 
+
+    let RequestOption={
+        method:"POST",
+        headers:{'Content-Type' : 'application/json'},
+        body:JSON.stringify({
+            "contents": [{
+              "parts":[{"text": user.userdata},(user.file.data?[{"inline_data" :  user.file}] :[])
+
+              ]
+              }]
+             })
+    }
+    try{
+        let response= await fetch(Api_Url,RequestOption)
+        let data= await response.json()
+        let apiResponse = data.candidates[0].content.parts[0].text.replace(/\*\*(.*?)\*\*/g,"$1").trim()
+        
+
+        text.innerHTML=apiResponse
+
+
+    }
+
+    catch(error){
+        console.log(error);
+
+    }
+
+    finally{
+        chatContainer.scrollTo({top:chatContainer.scrollHeight,behavior:"smooth"})
+        image.src = `img.svg`
+        image.classList.remove("size")
+        user.file.data = null
+        user.file.mime_type = null
+    }
+
+
+
 }
+
+
+
+function createChatBox(html,classes) {
+    let div=document.createElement("div")
+    div.innerHTML = html
+    div.classList.add(classes)
+    return div
+}
+
+
+function hendlechatResponce(message){
+    user.userdata=message
+    let html=` <img src="user.png" alt="" id="userImage" width="7%">
+            <div class="user-chat-area">
+                    ${user.userdata}
+                    ${user.file.data?`<img src="data:${user.file.mime_type};base64,${user.file.data}" class="chooseimg"/>` :""}
+            </div>`
+    prompt.value=""
+    let userChatBox=createChatBox(html,"user-chat-box")
+    chatContainer.appendChild(userChatBox)
+
+    chatContainer.scrollTo({top:chatContainer.scrollHeight,behavior:"smooth"})
+
+
+    setTimeout(()=>{
+        let html=`<img src="ai.avif" alt="" id="aiImage" width="13%">
+            <div class="ai-chat-area">
+            <img src="loding.gif" alt="" class="loding" width="50px">
+            </div>`
+            let aiChatBox=createChatBox(html,"ai-chat-box")
+            chatContainer.appendChild(aiChatBox)
+
+            generatResponse(aiChatBox)
+
+    },300)
+
+}
+ 
+
+
+prompt.addEventListener("keydown",(e)=>{
+    if (e.key=="Enter"){
+        hendlechatResponce(prompt.value)
+    } 
+    
+    
+})
+
+
+submitbut.addEventListener("click",()=>{
+    hendlechatResponce(prompt.value)
+})
+
+
+imageinput.addEventListener("change", ()=>{
+    const file=imageinput.files[0]
+    if (!file) return
+    let reader = new FileReader()
+    reader.onload=(e)=>{
+        let base64strin = e.target.result.split(",")[1]
+        user.file={
+            mime_type: file.type,
+            data: base64strin
+
+        }
+        image.src = `data:${user.file.mime_type};base64,${user.file.data}`
+        image.classList.add("size")
+    }
+    reader.readAsDataURL(file)
+})
+
+
+
+
+
+
+imagebut.addEventListener("click",()=>{
+    imagebut.querySelector("input").click()
+})
